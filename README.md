@@ -1,3 +1,13 @@
+---
+title: Midas API & Bot
+emoji: 👑
+colorFrom: yellow
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # 🏆 Midas — Финансовый бро для подростков
 
 > Телеграм-бот и веб-приложение для учёта расходов и доходов. Без запары! 😎
