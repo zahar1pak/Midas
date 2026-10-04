@@ -94,7 +94,8 @@ export const useTransactionsStore = create<TransactionsState>((set, get) => ({
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
       const res = await fetch(`${API_URL}/transactions/sync?telegram_id=${telegramId}`, {
-        signal: controller.signal
+        signal: controller.signal,
+        headers: { 'Bypass-Tunnel-Reminder': 'true' }
       });
       clearTimeout(timeoutId);
 
@@ -116,7 +117,7 @@ export const useTransactionsStore = create<TransactionsState>((set, get) => ({
               // Push local un-synced item to server in background
               fetch(`${API_URL}/transactions/sync`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
                 body: JSON.stringify({ telegram_id: telegramId, transaction: tx })
               }).catch(() => {});
             }
@@ -151,7 +152,7 @@ export const useTransactionsStore = create<TransactionsState>((set, get) => ({
     const telegramId = getTelegramUserId();
     fetch(`${API_URL}/transactions/sync`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
       body: JSON.stringify({
         telegram_id: telegramId,
         transaction: newTx
@@ -170,7 +171,7 @@ export const useTransactionsStore = create<TransactionsState>((set, get) => ({
     if (target) {
       fetch(`${API_URL}/transactions/sync/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
         body: JSON.stringify(target)
       }).catch(() => {});
     }
@@ -182,7 +183,8 @@ export const useTransactionsStore = create<TransactionsState>((set, get) => ({
     set({ transactions: updated });
 
     fetch(`${API_URL}/transactions/sync/${id}`, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: { 'Bypass-Tunnel-Reminder': 'true' }
     }).catch(() => {});
   },
 
@@ -193,7 +195,7 @@ export const useTransactionsStore = create<TransactionsState>((set, get) => ({
     const telegramId = getTelegramUserId();
     fetch(`${API_URL}/transactions/sync/clear`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
       body: JSON.stringify({ telegram_id: telegramId })
     }).catch(() => {});
   },
