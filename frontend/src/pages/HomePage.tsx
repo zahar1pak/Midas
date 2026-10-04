@@ -184,10 +184,13 @@ export const HomePage: React.FC = () => {
 
   const sendVoiceToBackend = async (blob: Blob) => {
     setIsProcessingVoice(true);
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
     try {
       const formData = new FormData();
       formData.append('file', blob, 'voice_recording.webm');
-      const res = await fetch('http://localhost:8000/transactions/voice', {
+      const tgId = (window as any).Telegram?.WebApp?.initDataUnsafe?.user?.id || localStorage.getItem('midas_telegram_id') || '8726556932';
+      formData.append('telegram_id', String(tgId));
+      const res = await fetch(`${API_URL}/transactions/voice`, {
         method: 'POST',
         body: formData
       });

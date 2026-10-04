@@ -27,7 +27,7 @@ class ApiClient:
 
     async def get_stats(self, telegram_id: int) -> dict:
         try:
-            response = await self._request("GET", "/stats/summary", params={"currency": "RUB"})
+            response = await self._request("GET", "/stats/summary", params={"currency": "RUB", "telegram_id": telegram_id})
             if response.status_code == 200:
                 return response.json()
         except Exception:
