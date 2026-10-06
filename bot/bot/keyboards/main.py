@@ -14,7 +14,8 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
             KeyboardButton("📊 Статистика")
         ],
         [
-            app_button
+            app_button,
+            KeyboardButton("🆔 Мой ID")
         ]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

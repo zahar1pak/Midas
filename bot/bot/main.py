@@ -7,6 +7,7 @@ from bot.handlers.start import start_command
 from bot.handlers.voice import voice_handler
 from bot.handlers.stats import text_handler
 from bot.handlers.webapp import webapp_command
+from bot.handlers.admin import id_command, admin_command, support_command
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -35,6 +36,9 @@ def run_bot():
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("app", webapp_command))
+    application.add_handler(CommandHandler("id", id_command))
+    application.add_handler(CommandHandler("admin", admin_command))
+    application.add_handler(CommandHandler("support", support_command))
     
     application.add_handler(MessageHandler(filters.VOICE, voice_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
@@ -47,7 +51,18 @@ def run_bot():
         poll_interval=1.0,
     )
 
+def start_support_bot():
+    try:
+        import sys, subprocess, os
+        bot_dir = os.path.dirname(os.path.abspath(__file__))
+        parent_dir = os.path.dirname(bot_dir)
+        subprocess.Popen([sys.executable, "-m", "bot.support_bot"], cwd=parent_dir)
+        logging.info("[MIDAS] Launched Support Bot (@GoldMidaasHelp_bot) background process")
+    except Exception as e:
+        logging.warning(f"Could not launch support bot: {e}")
+
 def main():
+    start_support_bot()
     while True:
         try:
             run_bot()

@@ -28,6 +28,10 @@ interface TransactionsState {
   clearAllTransactions: () => void;
   setTransactions: (txs: TransactionItem[]) => void;
   addCustomCategory: (cat: Omit<CustomCategoryItem, 'id'>) => void;
+  telegramId: number;
+  setTelegramUserId: (id: number) => void;
+  isSyncing: boolean;
+  lastSyncTime: number | null;
   getTotalIncome: () => number;
   getTotalExpense: () => number;
   getTotalSavings: () => number;
@@ -87,9 +91,19 @@ const getInitialCustomCategories = (): CustomCategoryItem[] => {
 export const useTransactionsStore = create<TransactionsState>((set, get) => ({
   transactions: getInitialData(),
   customCategories: getInitialCustomCategories(),
+  telegramId: getTelegramUserId(),
+  isSyncing: false,
+  lastSyncTime: null,
+
+  setTelegramUserId: (id: number) => {
+    localStorage.setItem('midas_telegram_id', String(id));
+    set({ telegramId: id });
+    get().syncWithBackend();
+  },
 
   syncWithBackend: async () => {
-    const telegramId = getTelegramUserId();
+    const telegramId = get().telegramId || getTelegramUserId();
+    set({ isSyncing: true });
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
@@ -130,11 +144,15 @@ export const useTransactionsStore = create<TransactionsState>((set, get) => ({
           });
 
           localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedList));
-          set({ transactions: mergedList });
+          set({ transactions: mergedList, lastSyncTime: Date.now() });
+        } else {
+          set({ lastSyncTime: Date.now() });
         }
       }
     } catch (e) {
       // Offline fallback: keep local data
+    } finally {
+      set({ isSyncing: false });
     }
   },
 
@@ -238,9 +256,23 @@ export const useTransactionsStore = create<TransactionsState>((set, get) => ({
   }
 }));
 
-// Automatically trigger sync on module load
+// Automatically trigger sync on module load and keep in sync with phone
 if (typeof window !== 'undefined') {
   setTimeout(() => {
     useTransactionsStore.getState().syncWithBackend?.();
   }, 300);
+
+  // Poll backend every 4 seconds so voice transactions from phone appear on PC in real-time
+  setInterval(() => {
+    useTransactionsStore.getState().syncWithBackend?.();
+  }, 4000);
+
+  // Instant sync when user switches back to browser tab
+  window.addEventListener('focus', () => {
+    useTransactionsStore.getState().syncWithBackend?.();
+  });
+
+  window.addEventListener('online', () => {
+    useTransactionsStore.getState().syncWithBackend?.();
+  });
 }

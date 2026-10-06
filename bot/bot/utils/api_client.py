@@ -55,4 +55,34 @@ class ApiClient:
             pass
         return {}
 
+    async def get_admin_stats(self, pin: str = "8642") -> dict:
+        try:
+            response = await self._request("GET", "/admin/stats", params={"pin": pin}, headers={"X-Admin-Pin": pin})
+            if response.status_code == 200:
+                return response.json()
+        except Exception:
+            pass
+        return {}
+
+    async def send_support_message(self, telegram_id: int | None, username: str | None, text: str) -> dict:
+        payload = {"telegram_id": telegram_id, "username": username, "text": text}
+        try:
+            response = await self._request("POST", "/admin/support/send", json=payload)
+            if response.status_code == 200:
+                return response.json()
+        except Exception:
+            pass
+        return {}
+
+    async def reply_support_message(self, message_id: str, reply_text: str) -> dict:
+        payload = {"message_id": message_id, "reply_text": reply_text}
+        try:
+            response = await self._request("POST", "/admin/support/reply", json=payload)
+            if response.status_code == 200:
+                return response.json()
+        except Exception:
+            pass
+        return {}
+
 api_client = ApiClient()
+

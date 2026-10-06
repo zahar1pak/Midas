@@ -10,13 +10,38 @@ import uuid
 from app.database import get_db
 from app.models.user import User
 from app.models.transaction import Transaction
-from app.models.category import Category
+from app.models.category import Category, CategoryType
 from app.schemas.transaction import TransactionCreate, TransactionResponse
 from app.services.transaction_service import create_transaction, get_transactions
 from app.services.voice_service import voice_service
 from app.services.ai_service import ai_service
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
+
+async def get_or_create_category(
+    db: AsyncSession,
+    category_name: str,
+    tx_type: str = "expense",
+    user_id: Optional[str] = None
+) -> Category:
+    name = (category_name or "Прочее").strip()
+    stmt = select(Category).where(Category.name == name)
+    res = await db.execute(stmt)
+    cat = res.scalar_one_or_none()
+    if not cat:
+        c_type = CategoryType.income if tx_type == "income" else CategoryType.expense
+        cat = Category(
+            id=str(uuid.uuid4()),
+            name=name,
+            type=c_type,
+            user_id=user_id,
+            is_system=True
+        )
+        db.add(cat)
+        await db.commit()
+        await db.refresh(cat)
+    return cat
+
 
 @router.post("/", response_model=TransactionResponse)
 async def add_transaction(tx: TransactionCreate, db: AsyncSession = Depends(get_db)):
@@ -95,14 +120,20 @@ async def process_voice(
     if parsed.get("days_offset"):
         tx_date = tx_date - timedelta(days=parsed["days_offset"])
 
+    # Категория
+    category_name = parsed.get("category") or "Прочее"
+    tx_type = parsed.get("type", "expense")
+    cat = await get_or_create_category(db, category_name, tx_type, user_id)
+
     # Сохраняем транзакцию
     new_tx = Transaction(
         user_id=user_id,
-        type=parsed.get("type", "expense"),
+        type=tx_type,
         amount=parsed.get("amount", 0.0),
         currency=parsed.get("currency", "RUB"),
         amount_base=parsed.get("amount", 0.0),
         exchange_rate=1.0,
+        category_id=cat.id,
         description=parsed.get("description", transcription),
         source="voice",
         raw_text=transcription,
@@ -116,10 +147,11 @@ async def process_voice(
         "transcription": transcription,
         "transaction": {
             "id": new_tx.id,
-            "type": new_tx.type,
+            "type": new_tx.type.value if hasattr(new_tx.type, "value") else str(new_tx.type),
             "amount": float(new_tx.amount),
             "currency": new_tx.currency,
-            "category": parsed.get("category", "Прочее"),
+            "category": cat.name,
+            "category_id": cat.id,
             "description": new_tx.description,
             "transaction_date": new_tx.transaction_date.isoformat()
         }
@@ -153,13 +185,19 @@ async def process_text(
     if parsed.get("days_offset"):
         tx_date = tx_date - timedelta(days=parsed["days_offset"])
 
+    # Категория
+    category_name = parsed.get("category") or "Прочее"
+    tx_type = parsed.get("type", "expense")
+    cat = await get_or_create_category(db, category_name, tx_type, user_id)
+
     new_tx = Transaction(
         user_id=user_id,
-        type=parsed.get("type", "expense"),
+        type=tx_type,
         amount=parsed.get("amount", 0.0),
         currency=parsed.get("currency", "RUB"),
         amount_base=parsed.get("amount", 0.0),
         exchange_rate=1.0,
+        category_id=cat.id,
         description=parsed.get("description", text),
         source="text",
         raw_text=text,
@@ -172,10 +210,11 @@ async def process_text(
     return {
         "transaction": {
             "id": new_tx.id,
-            "type": new_tx.type,
+            "type": new_tx.type.value if hasattr(new_tx.type, "value") else str(new_tx.type),
             "amount": float(new_tx.amount),
             "currency": new_tx.currency,
-            "category": parsed.get("category", "Прочее"),
+            "category": cat.name,
+            "category_id": cat.id,
             "description": new_tx.description,
             "transaction_date": new_tx.transaction_date.isoformat()
         }
@@ -257,11 +296,10 @@ async def save_sync_transaction(
         await db.refresh(user)
 
     tx_data = payload.transaction
-    # Проверяем категорию
-    cat_stmt = select(Category).where(Category.name == tx_data.category)
-    cat_res = await db.execute(cat_stmt)
-    category = cat_res.scalar_one_or_none()
-    cat_id = category.id if category else None
+    # Проверяем или создаем категорию
+    cat = await get_or_create_category(db, tx_data.category or "Прочее", tx_data.type, user.id)
+    cat_id = cat.id
+
 
     tx_date = datetime.utcnow()
     if tx_data.timestamp:

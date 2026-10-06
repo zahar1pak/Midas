@@ -11,15 +11,15 @@ async def stats_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     result = await api_client.get_stats(user.id)
     
     if result:
-        income = result.get("total_income", 0)
-        expense = result.get("total_expenses", 0)
+        income = result.get("total_income", result.get("income", 0))
+        expense = result.get("total_expenses", result.get("expense", 0))
         net = result.get("net", income - expense)
         
         reply_text = (
             f"📊 **Твоя статистика за месяц, бро:**\n\n"
-            f"💰 Пришло (доходы): **{income:,.0f} ₽**\n"
-            f"📉 Ушло (расходы): **{expense:,.0f} ₽**\n"
-            f"💵 Чистый остаток: **{net:,.0f} ₽**\n\n"
+            f"💰 Пришло (доходы): **{int(income)} ₽**\n"
+            f"📉 Ушло (расходы): **{int(expense)} ₽**\n"
+            f"💵 Чистый остаток: **{int(net)} ₽**\n\n"
             f"Загляни в приложение для красивых графиков и аналитики! 📱"
         )
     else:
@@ -34,6 +34,19 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     text = update.message.text.strip()
     user = update.effective_user
 
+    # Проверка ввода PIN-кода администратора
+    if context.user_data.get("awaiting_admin_pin"):
+        context.user_data["awaiting_admin_pin"] = False
+        from bot.handlers.admin import ADMIN_PIN, send_admin_dashboard
+        if text == ADMIN_PIN:
+            context.user_data["is_admin"] = True
+            await update.message.reply_text("🔓 **Доступ разрешен!** Загружаю данные панели...", parse_mode="Markdown")
+            await send_admin_dashboard(update, context)
+            return
+        else:
+            await update.message.reply_text("❌ **Неверный PIN-код!** Доступ к админ-панели запрещен.", parse_mode="Markdown")
+            return
+
     if text == "📊 Статистика":
         await stats_handler(update, context)
         return
@@ -43,6 +56,11 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     elif text == "📱 Приложение":
         await webapp_command(update, context)
         return
+    elif text == "🆔 Мой ID":
+        from bot.handlers.admin import id_command
+        await id_command(update, context)
+        return
+
 
     # Если пользователь ввёл текст с тратой/доходом
     res = await api_client.process_text(user.id, text)

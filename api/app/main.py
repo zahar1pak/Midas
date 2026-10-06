@@ -14,6 +14,7 @@ async def lifespan(app: FastAPI):
     import app.models.transaction_tags
     import app.models.friendship
     import app.models.group
+    import app.models.support
     # Создаём таблицы автоматически (для SQLite dev mode)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -38,7 +39,7 @@ async def root():
 
 from app.routers import (
     auth, transactions, categories, tags, profile,
-    friends, groups, rankings, stats, currency, ai_advice,
+    friends, groups, rankings, stats, currency, ai_advice, admin,
 )
 
 app.include_router(auth.router)
@@ -52,3 +53,5 @@ app.include_router(rankings.router)
 app.include_router(stats.router)
 app.include_router(currency.router)
 app.include_router(ai_advice.router)
+app.include_router(admin.router)
+
